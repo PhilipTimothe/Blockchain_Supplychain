@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.24;
+pragma solidity ^0.8.0;
 
 import "../coffeeaccesscontrol/FarmerRole.sol";
 import "../coffeeaccesscontrol/DistributorRole.sol";
@@ -70,10 +70,10 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
   event Purchased(uint upc);
 
   // Define a modifer that checks to see if msg.sender == owner of the contract
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
+  // modifier onlyOwner() {
+  //   require(msg.sender == owner);
+  //   _;
+  // }
 
   // Define a modifer that verifies the Caller
   modifier verifyCaller (address _address) {
@@ -83,7 +83,7 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
 
   // Define a modifier that checks if the paid amount is sufficient to cover the price
   modifier paidEnough(uint _price) { 
-    require(msg.value >= _price); 
+    require(msg.value >= _price, "Not enough Funds"); 
     _;
   }
   
@@ -92,7 +92,9 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
     _;
     uint _price = items[_upc].productPrice;
     uint amountToReturn = msg.value - _price;
-    payable(items[_upc].consumerID).transfer(amountToReturn);
+    address payable consumerAddress = payable(address(uint160(items[_upc].consumerID)));
+    consumerAddress.transfer(amountToReturn);
+    
   }
 
   // Define a modifier that checks if an item.state of a upc is Harvested
@@ -155,7 +157,7 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
   // Define a function 'kill' if required
   function kill() public {
     if (msg.sender == owner) {
-      selfdestruct(payable(owner));
+      selfdestruct(payable(address(owner)));
     }
   }
 
@@ -179,6 +181,7 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
     item.originFarmInformation = _originFarmInformation;
     item.originFarmLatitude = _originFarmLatitude;
     item.originFarmLongitude = _originFarmLongitude;
+    item.productID = _upc + sku;
     item.productNotes = _productNotes;
     item.itemState = State.Harvested;
 
@@ -239,7 +242,8 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
     items[_upc].itemState = State.Sold;
     
     // Transfer money to farmer
-    payable(items[_upc].originFarmerID).transfer(msg.value);
+    address payable farmerAddress = payable(address(uint160(items[_upc].originFarmerID)));
+    farmerAddress.transfer(msg.value);
     
     // emit the appropriate event
     emit Sold(_upc);
@@ -251,7 +255,7 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
   // Call modifier to verify caller of this function
   function shipItem(uint _upc) public sold(_upc) verifyCaller(items[_upc].ownerID) {
     // Update the appropriate fields
-    items[_upc].itemState = State.Sold;
+    items[_upc].itemState = State.Shipped;
     
     // Emit the appropriate event
     emit Shipped(_upc);
@@ -338,7 +342,7 @@ contract SupplyChain is FarmerRole, DistributorRole, RetailerRole, ConsumerRole,
     productID = item.productID;
     productNotes = item.productNotes;
     productPrice = item.productPrice;
-    itemState = item.itemState;
+    itemState = uint256(item.itemState);
     distributorID = item.distributorID;
     retailerID = item.retailerID;
     consumerID = item.consumerID;
